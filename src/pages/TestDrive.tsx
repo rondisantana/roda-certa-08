@@ -1,16 +1,38 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Calendar as CalendarIcon, Car, Clock, MapPin, User } from "lucide-react";
+import {
+  Calendar as CalendarIcon,
+  Car,
+  Clock,
+  MapPin,
+  User,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const TestDrive = () => {
@@ -23,31 +45,155 @@ const TestDrive = () => {
   const [horario, setHorario] = useState("");
   const [unidade, setUnidade] = useState("");
   const [observacoes, setObservacoes] = useState("");
+  const [agendamentos, setAgendamentos] = useState([]);
 
-  const handleAgendar = () => {
-    console.log("Test drive agendado:", {
-      nome,
-      email,
-      telefone,
-      cnh,
-      marcaModelo,
-      data,
-      horario,
-      unidade,
-      observacoes,
-    });
+  useEffect(() => {
+    const buscarAgendamentos = async () => {
+      try {
+        const resposta = await fetch("http://localhost:3000/test-drives");
+        const dados = await resposta.json();
+        setAgendamentos(dados);
+      } catch (erro) {
+        console.error("Erro ao buscar agendamentos:", erro);
+      }
+    };
+
+    buscarAgendamentos();
+  }, []);
+
+  const handleAgendar = async () => {
+    if (
+      !nome ||
+      !email ||
+      !telefone ||
+      !cnh ||
+      !marcaModelo ||
+      !data ||
+      !horario ||
+      !unidade
+    ) {
+      alert("Por favor, preencha todos os campos obrigatórios.");
+      return;
+    }
+
+    try {
+      const resposta = await fetch("http://localhost:3000/test-drives", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          nome,
+          email,
+          telefone,
+          cnh,
+          marcaModelo,
+          data,
+          horario,
+          unidade,
+          observacoes,
+        }),
+      });
+
+      if (resposta.ok) {
+        const novo = await resposta.json(); // pega o agendamento recém-criado
+        setAgendamentos((prev) => [...prev, novo]); // adiciona à lista
+        alert("Agendamento realizado com sucesso!");
+        // Limpar o formulário
+        setNome("");
+        setEmail("");
+        setTelefone("");
+        setCnh("");
+        setMarcaModelo("");
+        setData(undefined);
+        setHorario("");
+        setUnidade("");
+        setObservacoes("");
+      } else {
+        alert("Erro ao agendar. Tente novamente.");
+      }
+    } catch (erro) {
+      console.error("Erro na requisição:", erro);
+      alert("Erro de conexão com o servidor.");
+    }
+  };
+
+  const handleExcluir = async (id: number) => {
+    console.log("Excluindo ID:", id);
+
+    const confirmar = confirm(
+      "Tem certeza que deseja excluir este agendamento?"
+    );
+    if (!confirmar) return;
+
+    try {
+      const resposta = await fetch(`http://localhost:3000/test-drives/${id}`, {
+        method: "DELETE",
+      });
+
+      if (resposta.ok) {
+        // Remove o agendamento da lista atualizada
+        setAgendamentos((prev) => prev.filter((item) => item.id !== id));
+        alert("Agendamento excluído com sucesso!");
+      } else {
+        alert("Erro ao excluir agendamento.");
+      }
+    } catch (erro) {
+      console.error("Erro ao excluir:", erro);
+      alert("Erro de conexão com o servidor.");
+    }
+  };
+
+  const handleEditar = async (agendamento: any) => {
+    const novaObs = prompt(
+      "Digite novas observações:",
+      agendamento.observacoes || ""
+    );
+    if (novaObs === null) return;
+
+    try {
+      const resposta = await fetch(
+        `http://localhost:3000/test-drives/${agendamento.id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ observacoes: novaObs }),
+        }
+      );
+
+      if (resposta.ok) {
+        const atualizado = await resposta.json();
+        setAgendamentos((prev) =>
+          prev.map((item) => (item.id === atualizado.id ? atualizado : item))
+        );
+        alert("Agendamento atualizado com sucesso!");
+      } else {
+        alert("Erro ao atualizar agendamento.");
+      }
+    } catch (erro) {
+      console.error("Erro ao editar:", erro);
+      alert("Erro de conexão com o servidor.");
+    }
   };
 
   const horariosDisponiveis = [
-    "09:00", "10:00", "11:00", "14:00", "15:00", "16:00", "17:00"
+    "09:00",
+    "10:00",
+    "11:00",
+    "14:00",
+    "15:00",
+    "16:00",
+    "17:00",
   ];
 
   const unidadesDisponiveis = [
     "São Paulo - Vila Olímpia",
-    "São Paulo - Morumbi", 
+    "São Paulo - Morumbi",
     "Rio de Janeiro - Barra da Tijuca",
     "Belo Horizonte - Savassi",
-    "Brasília - Asa Sul"
+    "Brasília - Asa Sul",
   ];
 
   return (
@@ -138,17 +284,29 @@ const TestDrive = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="marca-modelo">Marca/Modelo de Interesse</Label>
+                  <Label htmlFor="marca-modelo">
+                    Marca/Modelo de Interesse
+                  </Label>
                   <Select value={marcaModelo} onValueChange={setMarcaModelo}>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione o veículo" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="honda-civic">Honda Civic 2023</SelectItem>
-                      <SelectItem value="toyota-corolla">Toyota Corolla 2022</SelectItem>
-                      <SelectItem value="hyundai-hb20">Hyundai HB20 2023</SelectItem>
-                      <SelectItem value="volkswagen-jetta">Volkswagen Jetta 2022</SelectItem>
-                      <SelectItem value="chevrolet-onix">Chevrolet Onix Plus 2023</SelectItem>
+                      <SelectItem value="honda-civic">
+                        Honda Civic 2023
+                      </SelectItem>
+                      <SelectItem value="toyota-corolla">
+                        Toyota Corolla 2022
+                      </SelectItem>
+                      <SelectItem value="hyundai-hb20">
+                        Hyundai HB20 2023
+                      </SelectItem>
+                      <SelectItem value="volkswagen-jetta">
+                        Volkswagen Jetta 2022
+                      </SelectItem>
+                      <SelectItem value="chevrolet-onix">
+                        Chevrolet Onix Plus 2023
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -165,7 +323,9 @@ const TestDrive = () => {
                         )}
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
-                        {data ? format(data, "PPP", { locale: ptBR }) : "Selecione uma data"}
+                        {data
+                          ? format(data, "PPP", { locale: ptBR })
+                          : "Selecione uma data"}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0">
@@ -258,6 +418,57 @@ const TestDrive = () => {
               </Button>
             </CardContent>
           </Card>
+          <div className="mt-12">
+            <h2 className="text-2xl font-bold mb-4">Agendamentos Criados</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {agendamentos.map((agendamento) => (
+                <Card key={agendamento.id}>
+                  <CardHeader>
+                    <CardTitle>{agendamento.nome}</CardTitle>
+                    <CardDescription>
+                      {agendamento.email} • {agendamento.telefone}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-sm">
+                    <p>
+                      <strong>CNH:</strong> ****{agendamento.cnh}
+                    </p>
+                    <p>
+                      <strong>Data:</strong> {agendamento.data}
+                    </p>
+                    <p>
+                      <strong>Horário:</strong> {agendamento.horario}
+                    </p>
+                    <p>
+                      <strong>Unidade:</strong> {agendamento.unidade}
+                    </p>
+                    <p>
+                      <strong>Veículo:</strong> {agendamento.marcaModelo}
+                    </p>
+                    {agendamento.observacoes && (
+                      <p>
+                        <strong>Observações:</strong> {agendamento.observacoes}
+                      </p>
+                    )}
+                    <div className="flex gap-2 pt-4">
+                      <Button
+                        variant="outline"
+                        onClick={() => handleEditar(agendamento)}
+                      >
+                        Editar
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        onClick={() => handleExcluir(Number(agendamento.id))}
+                      >
+                        Excluir
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </div>
